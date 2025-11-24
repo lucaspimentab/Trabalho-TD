@@ -1,0 +1,506 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% PREÂMBULO: Configurações do documento
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\documentclass[a4paper, 12pt]{article}
+
+% Pacotes
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage{amsmath,amssymb,amsfonts} % amsfonts já carrega amssymb
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+\usepackage{indentfirst}
+
+% Configurações de parágrafo
+\setlength{\parindent}{1.25cm}
+\setlength{\parskip}{0.2cm}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Início do Documento
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{document}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% CAPA
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{titlepage}
+    \centering
+    
+    {\large UNIVERSIDADE FEDERAL DE MINAS GERAIS \par}
+    \vspace{0.5cm}
+    {\large ESCOLA DE ENGENHARIA \par}
+    
+    \vfill % Espaço vertical flexível
+
+    \includegraphics[scale=0.25]{Logo_UFMG.png}
+
+    \vfill % Espaço vertical flexível
+    
+    {\Large \textbf{TRABALHO COMPUTACIONAL} \par}
+    \vspace{0.4cm}
+    {\large Entrega 2 - Resultados da otimização multiobjetivo \par}
+    
+    \vfill % Espaço vertical flexível
+    
+    \textbf{Autores:} \\
+    \vspace{0.4cm}
+    GABRIEL ROLLA FERREIRA - 2022038457\\
+    LUCAS FRAZÃO MOREIRA - 2020056857\\
+    LUCAS PIMENTA BRAGA - 2023034552\\    
+    MATEUS DE SOUZA GONTIJO - 2020053530\\
+    \vfill % Espaço vertical flexível
+    
+    \textbf{Disciplina:} \\
+    \vspace{0.2cm}
+    TEORIA DA DECISÃO \\
+    
+    \vfill % Espaço vertical flexível
+    
+    {\large Belo Horizonte \par}
+    {\large Setembro de 2025 \par}
+    
+\end{titlepage}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% SUMÁRIO
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+\tableofcontents
+\newpage
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% CONTEÚDO DO TRABALHO
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Introdução e Objetivos}
+
+A atribuição eficiente de tarefas a agentes é um problema clássico de otimização que aparece em diversos contextos práticos, como a distribuição de atividades entre trabalhadores, o escalonamento de processos em máquinas, ou a alocação de recursos em sistemas computacionais. Em todos esses cenários, a má distribuição pode gerar custos elevados ou sobrecarga de determinados agentes, comprometendo o desempenho global do sistema.
+
+Neste trabalho, considera-se uma instância com 5 agentes e 50 tarefas, em que cada tarefa possui um custo específico de execução associado a cada agente e uma demanda de recursos que deve ser atendida respeitando a capacidade de cada agente. Assim, é necessário decidir a alocação de todas as tarefas de forma a garantir que nenhuma capacidade seja excedida e que cada tarefa seja executada por exatamente um agente.
+
+O problema será tratado de forma multiobjetivo, com duas funções principais em análise: (i) a minimização do custo total de execução e (ii) a minimização do desequilíbrio na distribuição de carga entre agentes. Para esta primeira entrega, o foco está na modelagem matemática e na formulação das versões mono-objetivo do problema, de forma a estabelecer as bases necessárias para o desenvolvimento dos algoritmos de otimização e das etapas posteriores do trabalho.
+
+\section{Definição do Problema}
+
+O problema de atribuição de tarefas a agentes consiste em designar um conjunto de tarefas $\mathcal{T}$, de cardinalidade $n$, a um conjunto de agentes $\mathcal{A}$, de cardinalidade $m$, de modo a respeitar restrições de capacidade e otimizar critérios de custo e equilíbrio.
+
+Para a instância considerada neste trabalho, são fornecidos 5 agentes ($m=5$) e 50 tarefas ($n=50$). As informações necessárias (parâmetros) estão disponíveis em arquivos fornecidos pelo professor, contendo:
+\begin{itemize}
+    \item uma matriz de custos $c_{ij}$, que representa o custo de atribuir a tarefa $j \in \mathcal{T}$ ao agente $i \in \mathcal{A}$;
+    \item uma matriz de recursos $a_{ij}$, que representa a quantidade de recursos consumidos pelo agente $i \in \mathcal{A}$ ao executar a tarefa $j \in \mathcal{T}$;
+    \item um vetor de capacidades $b_{i}$, que indica o total de recursos disponíveis para cada agente $i \in \mathcal{A}$.
+\end{itemize}
+
+\subsection*{Variáveis de Decisão}
+Define-se uma variável de decisão binária $x_{ij}$:
+\begin{equation}
+    x_{ij} =
+    \begin{cases}
+        1, & \text{se a tarefa } j \in \mathcal{T} \text{ for atribuída ao agente } i \in \mathcal{A} \\
+        0, & \text{caso contrário.}
+    \end{cases}
+\end{equation}
+
+\subsection*{Restrições}
+O modelo deve obedecer às seguintes restrições:
+
+\begin{enumerate}
+    \item \textbf{Atribuição única das tarefas:} Cada tarefa deve ser realizada exatamente por um agente.
+    \begin{equation}
+        \sum_{i=1}^{m} x_{ij} = 1, \quad \forall j \in \mathcal{T}
+    \end{equation}
+
+    \item \textbf{Limite de capacidade dos agentes:} O consumo de recursos total das tarefas atribuídas a um agente não pode ultrapassar sua capacidade.
+    \begin{equation}
+        \sum_{j=1}^{n} a_{ij} \cdot x_{ij} \leq b_i, \quad \forall i \in \mathcal{A}
+    \end{equation}
+
+    \item \textbf{Domínio das variáveis:} As variáveis de decisão devem ser binárias.
+    \begin{equation}
+        x_{ij} \in \{0, 1\}, \quad \forall i \in \mathcal{A}, \forall j \in \mathcal{T}
+    \end{equation}
+\end{enumerate}
+
+\section{Formulação Matemática}
+
+O problema pode ser representado por meio de duas funções objetivo conflitantes, além das restrições já apresentadas na Seção 2.
+
+\subsection{Função Objetivo 1: Minimização do Custo Total}
+A primeira função, $f_C(\cdot)$, busca reduzir o custo global de execução de todas as tarefas:
+\begin{equation}
+    f_{C}(x) = \sum_{i=1}^{m} \sum_{j=1}^{n} c_{ij} \cdot x_{ij}
+\end{equation}
+Onde $c_{ij}$ representa o custo de atribuir a tarefa $j$ ao agente $i$.
+
+\subsection{Função Objetivo 2: Minimização do Desequilíbrio de Carga}
+A segunda função, $f_E(\cdot)$, busca equilibrar a distribuição das tarefas entre os agentes, reduzindo a diferença entre os agentes mais e menos sobrecarregados em termos de recursos utilizados:
+\begin{equation}
+    f_{E}(x) = \max_{i \in \mathcal{A}} \left( \sum_{j=1}^{n} a_{ij} \cdot x_{ij} \right) - \min_{i \in \mathcal{A}} \left( \sum_{j=1}^{n} a_{ij} \cdot x_{ij} \right)
+\end{equation}
+Onde $a_{ij}$ representa a quantidade de recursos exigida do agente $i$ para executar a tarefa $j$.
+
+\subsection{Problema Multiobjetivo}
+Assim, o problema de atribuição de tarefas a agentes é formulado como um problema de otimização multiobjetivo, sujeito às restrições definidas anteriormente:
+\begin{center}
+    Minimizar $\quad (f_C(x), f_E(x))$
+\end{center}
+
+\section{Algoritmo de Solução}
+
+Foi implementada uma variação da metaheurística \textbf{Variable Neighborhood Search (VNS)}.
+
+\subsection{Modelagem computacional}
+Uma solução é representada por um vetor de tamanho $n$, em que a posição $j$ indica qual agente executa a tarefa $j$.
+
+\subsection{Estruturas de vizinhança}
+\begin{enumerate}
+    \item \textbf{Troca (swap):} troca duas tarefas entre dois agentes.
+    \item \textbf{Realocação (shift):} move uma tarefa de um agente para outro.
+    \item \textbf{Dupla troca (2-swap):} troca simultaneamente duas tarefas de agentes distintos.
+\end{enumerate}
+
+\subsection{Heurística construtiva}
+Para gerar a solução inicial, foi implementada uma heurística construtiva baseada no princípio \textbf{GRASP (Greedy Randomized Adaptive Search Procedure)}. 
+
+Em vez de selecionar deterministicamente o agente de menor custo para cada tarefa, o algoritmo constrói uma "lista restrita de candidatos" (RCL) contendo os agentes viáveis cujo custo está dentro de um limiar $\alpha$ do melhor custo. Um agente é então selecionado aleatoriamente desta lista. Isso garante que cada uma das 5 execuções do VNS parta de um ponto inicial diferente, mas ainda assim de alta qualidade, aumentando a exploração do espaço de busca.
+
+\subsection{Estratégia de refinamento}
+Foi utilizada a busca local do tipo \textbf{Best Improvement}. Dada uma solução, o algoritmo explora exaustivamente \textit{toda} a vizinhança de \textbf{Realocação (shift)}. 
+
+Isso significa que para cada uma das $n=50$ tarefas, o algoritmo testa movê-la para cada um dos $m-1=4$ outros agentes (totalizando $\approx 200$ movimentos). A melhoria que trouxer o maior ganho para a função objetivo é então aplicada. O processo se repete até que nenhum movimento de \textit{shift} seja capaz de melhorar a solução, garantindo que um ótimo local (para esta vizinhança) seja atingido.
+
+
+
+
+
+
+\section{Resultados da Otimização Mono-Objetivo}
+
+\subsection{Resultados numéricos}
+
+\begin{table}[H]
+\centering
+
+
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Execução} & \textbf{1} & \textbf{2} & \textbf{3} & \textbf{4} & \textbf{5} \\
+\midrule
+Valor             & 1016       & 980        & 990        & 978        & 1021       \\
+\midrule[\heavyrulewidth]
+\multicolumn{3}{l}{Mínimo: 978}        & \multicolumn{3}{r}{Máximo: 1021}           \\
+\multicolumn{3}{l}{Média: 997}         & \multicolumn{3}{r}{Desvio Padrão: 18.09}   \\
+\bottomrule
+\end{tabular}
+\caption{Resultados estatísticos para $f_1$ (custo total).}
+\label{tab:resultados_f1}
+\end{table}
+
+\begin{table}[H]
+\centering
+
+
+\begin{tabular}{lccccc}
+
+\toprule
+
+\textbf{Execução} & \textbf{1} & \textbf{2} & \textbf{3} & \textbf{4} & \textbf{5} \\
+\midrule
+Valor             & 4          & 6          & 7          & 6          & 4          \\
+\midrule[\heavyrulewidth]
+\multicolumn{3}{l}{Mínimo: 4}          & \multicolumn{3}{r}{Máximo: 7}              \\
+\multicolumn{3}{l}{Média: 5.4}         & \multicolumn{3}{r}{Desvio Padrão: 1.2}     \\
+
+\bottomrule
+
+\end{tabular}
+\caption{Resultados estatísticos para $f_2$ (desequilíbrio de carga).}
+\label{tab:resultados_f2}
+\end{table}
+
+\subsection{Curvas de convergência}
+
+As Figuras \ref{fig:f1_convergencia} e \ref{fig:f2_convergencia} apresentam as curvas de convergência (05 execuções sobrepostas).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{resultados_f1_convergencia.png}
+    \caption{Curvas de convergência para $f_1$.}
+    \label{fig:f1_convergencia}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{resultados_f2_convergencia.png}
+    \caption{Curvas de convergência para $f_2$.}
+    \label{fig:f2_convergencia}
+\end{figure}
+
+\subsection{Melhor solução encontrada}
+
+As Figuras \ref{fig:f1_melhor} e \ref{fig:f2_melhor} apresentam a distribuição de carga por agente na melhor solução encontrada para cada função objetivo.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{resultados_f1_melhor.png}
+    \caption{Melhor solução encontrada para $f_1$ (custo mínimo).}
+    \label{fig:f1_melhor}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.7\textwidth]{resultados_f2_melhor.png}
+    \caption{Melhor solução encontrada para $f_2$ (carga equilibrada).}
+    \label{fig:f2_melhor}
+\end{figure}
+
+
+
+
+
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% ENTREGA #2: OTIMIZAÇÃO MULTIOBJETIVO
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+\section{Otimização Multiobjetivo}
+
+Os resultados da otimização mono-objetivo confirmaram a natureza conflitante das funções $f_C(x)$ (custo) e $f_E(x)$ (equilíbrio). A solução de menor custo (894.00) gera um desequilíbrio significativo, enquanto a solução de equilíbrio perfeito (0.00) certamente não possui o menor custo.
+
+O objetivo desta segunda entrega é encontrar o conjunto de soluções de compromisso entre esses dois extremos, conhecido como \textbf{Fronteira de Pareto}. Para gerar esta fronteira, nosso problema multiobjetivo (PMM) é transformado em um problema mono-objetivo (PMO) por meio de métodos de escalarização. Isso permite que o mesmo algoritmo VNS desenvolvido na Etapa 1 seja utilizado para encontrar as soluções não-dominadas.
+
+Conforme solicitado, duas abordagens escalares serão implementadas: a Soma Ponderada (Pw) e o Método $\epsilon$-Restrito (PE).
+
+\subsection{Abordagem Escalar: Soma Ponderada (Pw)}
+
+A abordagem de Soma Ponderada (Pw) combina todas as $k$ funções objetivo em uma única função escalar, $f_{Pw}(x)$, por meio de uma soma ponderada.
+
+\begin{equation}
+    f_{Pw}(x) = \sum_{k=1}^{K} w_k \cdot f_k(x)
+\end{equation}
+
+Onde $w_k \geq 0$ é o peso (importância) atribuído à $k$-ésima função objetivo, e $\sum_{k=1}^{K} w_k = 1$.
+
+\subsubsection*{Normalização}
+Um desafio crítico desta abordagem é que as funções objetivo $f_C(x)$ e $f_E(x)$ operam em escalas drasticamente diferentes. Como visto nos resultados anteriores, os valores de $f_C(x)$ estão na casa das centenas (ex: 894 a $\approx$1000), enquanto $f_E(x)$ varia em unidades (ex: 0 a $\approx$10).
+
+Se aplicássemos a soma ponderada diretamente, o termo de custo ($f_C$) dominaria completamente a soma, mesmo com um peso muito baixo (ex: $w_C = 0.01$). O VNS ignoraria quase que totalmente o objetivo de equilíbrio.
+
+Para resolver isso, as funções objetivo devem ser \textbf{normalizadas} para um intervalo comum, tipicamente [0, 1], antes de serem somadas. A normalização $\hat{f}_k(x)$ de uma função $f_k(x)$ é dada por:
+
+\begin{equation}
+    \hat{f}_k(x) = \frac{f_k(x) - f_k^{\text{min}}}{f_k^{\text{max}} - f_k^{\text{min}}}
+\end{equation}
+
+Onde $f_k^{\text{min}}$ e $f_k^{\text{max}}$ são os valores (ideais e nadir) da função objetivo $k$, obtidos a partir da otimização mono-objetivo. Com isso, a função escalar final a ser minimizada pelo VNS é:
+
+\begin{equation}
+    \text{Minimizar} \quad f_{Pw}(x) = w_C \cdot \hat{f}_C(x) + w_E \cdot \hat{f}_E(x)
+\end{equation}
+
+Para gerar a fronteira, o algoritmo VNS será executado múltiplas vezes, variando-se os pesos $w_C$ e $w_E$ (com $w_C + w_E = 1$) em passos discretos, de forma a obter aproximadamente 20 soluções não-dominadas.
+
+\subsection{Abordagem Escalar: Método $\epsilon$-Restrito (PE)}
+
+O Método $\epsilon$-Restrito (PE) transforma o problema multiobjetivo em um mono-objetivo de forma diferente: ele otimiza a função objetivo considerada prioritária e trata todas as outras como novas restrições ao problema.
+
+Para este trabalho, escolhemos minimizar a função de custo $f_C(x)$ e transformar a função de equilíbrio $f_E(x)$ em uma restrição. O novo modelo matemático fica:
+
+\begin{center}
+    \textbf{Minimizar} \quad $f_C(x)$
+\end{center}
+
+\textbf{Sujeito a:}
+\begin{align}
+    \sum_{i=1}^{m} x_{ij} = 1, \quad & \forall j \in \mathcal{T} \quad \text{(Atribuição única)} \\
+    \sum_{j=1}^{n} a_{ij} \cdot x_{ij} \leq b_i, \quad & \forall i \in \mathcal{A} \quad \text{(Capacidade)} \\
+    x_{ij} \in \{0, 1\}, \quad & \forall i \in \mathcal{A}, \forall j \in \mathcal{T} \quad \text{(Domínio)} \\
+    \textbf{\textit{f}}_{\textbf{\textit{E}}}\textbf{\textit{(x)}} \leq \epsilon_E \quad & \textbf{\textit{(Nova restrição $\epsilon$)}}
+\end{align}
+
+Onde $\epsilon_E$ é o valor máximo permitido para o desequilíbrio de carga.
+
+A fronteira de Pareto é gerada executando o VNS múltiplas vezes, variando-se o valor de $\epsilon_E$. O valor de $\epsilon_E$ será discretizado em aproximadamente 20 passos, variando entre o seu valor máximo (o desequilíbrio da solução de custo mínimo) e o seu valor mínimo (zero).
+
+A principal vantagem desta abordagem é que ela não sofre do problema de escala e, portanto, \textbf{não requer normalização}.
+
+
+\subsection{Resultados da Otimização Multiobjetivo}
+
+Para cada uma das duas abordagens (Pw e PE), o processo de otimização foi executado 5 vezes. Em cada execução, 20 pontos da fronteira foram estimados, e os resultados das 5 execuções foram sobrepostos. Por fim, um conjunto único de soluções não-dominadas foi filtrado de todos os pontos encontrados, e 20 soluções representativas foram selecionadas para compor a "Fronteira Final".
+
+\subsubsection{Resultados da Soma Ponderada (Pw)}
+
+A Figura \ref{fig:fronteira_pw} apresenta os resultados obtidos pela abordagem da Soma Ponderada. As 5 execuções distintas estão representadas por cores diferentes, e a fronteira final agregada é marcada com um 'X' vermelho.
+
+É possível observar que o método foi bem-sucedido em encontrar soluções ao longo da curva de Pareto, demonstrando o conflito entre o custo ($f_1$) e o desequilíbrio ($f_2$). No entanto, a distribuição dos pontos encontrados é visivelmente irregular. Nota-se um agrupamento de soluções nos extremos da fronteira (regiões de baixo custo/alto desequilíbrio e alto custo/baixo desequilíbrio), com menos soluções sendo encontradas na região de "joelho" da curva. Este é um comportamento esperado da Soma Ponderada, que possui dificuldades teóricas em encontrar soluções em partes não-convexas da fronteira.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{fronteira_pw.jpeg}
+    \caption{Resultados das 5 execuções da abordagem Soma Ponderada (Pw).}
+    \label{fig:fronteira_pw}
+\end{figure}
+
+\subsubsection{Resultados do Método $\epsilon$-Restrito (PE)}
+
+A Figura \ref{fig:fronteira_pe} apresenta os resultados da abordagem do Método $\epsilon$-Restrito. Novamente, as 5 execuções estão sobrepostas, compondo a fronteira final.
+
+Em contraste com a Soma Ponderada, o Método $\epsilon$-Restrito gerou uma fronteira de Pareto com uma distribuição de pontos significativamente mais uniforme e completa. Ao variar o valor da restrição $\epsilon$ em passos discretos, o algoritmo VNS foi "forçado" a encontrar a solução de menor custo para cada nível de desequilíbrio permitido. Isso permitiu um mapeamento muito mais granular de toda a curva de \textit{trade-off}, capturando soluções em todas as regiões da fronteira, incluindo o "joelho".
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{fronteira_pe.jpeg}
+    \caption{Resultados das 5 execuções da abordagem Método $\epsilon$-Restrito (PE).}
+    \label{fig:fronteira_pe}
+\end{figure}
+
+\subsubsection{Comparação das Abordagens}
+
+Ambos os métodos foram capazes de estimar a fronteira de Pareto, validando a eficácia do VNS como algoritmo de otimização. No entanto, a análise comparativa dos gráficos demonstra claramente a superioridade do Método $\epsilon$-Restrito (PE) para este problema. O PE gerou um conjunto de soluções não-dominadas mais rico e muito melhor distribuído do que a Soma Ponderada.
+
+Devido à sua melhor qualidade e distribuição, a "Fronteira Final (20 pontos)" obtida pelo Método $\epsilon$-Restrito será utilizada como o conjunto de alternativas de decisão para a Entrega \#3: Tomada de Decisão Multicritério.
+
+
+
+
+\section{Tomada de Decis\~ao Multicrit\'erio}
+
+A terceira etapa empregou a fronteira final produzida pelo M\'etodo $\epsilon$-Restrito (PE) como conjunto de alternativas candidatas. Cada ponto da fronteira foi gerado com o mesmo VNS da Etapa 2, resultando em um conjunto filtrado de 10 solu\c{c}\~oes n\~ao-dominadas, consolidado no arquivo \texttt{graphs/decisao\_multicriterio/decisao\_resumo.csv}.
+
+\subsection{Crit\'erios e pesos}
+Para cada solu\c{c}\~ao foram avaliados quatro atributos, combinando desempenho nominal e robustez:
+\begin{itemize}
+    \item $f_1$: custo total (crit\'erio de custo);
+    \item $f_2$: desequil\'ibrio de carga (crit\'erio de custo);
+    \item \textbf{Folga m\'inima}: $\min_i \{ b_i - \text{carga}_i \}$ (crit\'erio de benef\'icio);
+    \item \textbf{Varia\c{c}\~ao de custo}: m\'edia da varia\c{c}\~ao absoluta do custo sob perturba\c{c}\~oes aleat\'orias de $\pm 10\%$ na matriz $c$ (crit\'erio de custo). As mesmas simula\c{c}\~oes tamb\'em registraram folga m\'edia e viola\c{c}\~ao esperada de capacidade, utilizadas como diagn\'ostico de robustez.
+\end{itemize}
+
+Os pesos consensuados foram $w = [0.35,\,0.25,\,0.20,\,0.20]$ para $f_1$, $f_2$, folga m\'inima e varia\c{c}\~ao de custo, respectivamente. O tipo de cada crit\'erio (custo/benef\'icio) determinou o sentido da normaliza\c{c}\~ao.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lcc}
+\toprule
+Crit\'erio & Tipo & Peso \\
+\midrule
+$f_1$ (custo) & Custo & 0.35 \\
+$f_2$ (desequil\'ibrio) & Custo & 0.25 \\
+Folga m\'inima & Benef\'icio & 0.20 \\
+Varia\c{c}\~ao de custo & Custo & 0.20 \\
+\bottomrule
+\end{tabular}
+\caption{Crit\'erios e pesos usados na decis\~ao multicrit\'erio.}
+\label{tab:criterios_pesos}
+\end{table}
+
+\subsection{Procedimentos de avalia\c{c}\~ao}
+\paragraph{Agrega\c{c}\~ao cl\'assica ponderada.} Ap\'os normaliza\c{c}\~ao min--max de cada coluna segundo seu tipo, a nota final foi computada por soma ponderada:
+\begin{equation}
+    S_{\text{cl\'assico}}(x) = \sum_{k=1}^{4} w_k \,\tilde{f}_k(x),
+\end{equation}
+onde $\tilde{f}_k(x)$ \'e a forma normalizada do crit\'erio $k$.
+
+\paragraph{TOPSIS.} Os dados foram normalizados pela norma Euclidiana coluna a coluna, ponderados por $w_k$ e comparados aos pontos ideal ($f_k^{+}$) e nadir ($f_k^{-}$) de cada crit\'erio. A pontua\c{c}\~ao corresponde ao coeficiente de proximidade \`a solu\c{c}\~ao ideal:
+\begin{equation}
+    C^{*}(x) = \frac{D^{-}(x)}{D^{+}(x) + D^{-}(x)},
+\end{equation}
+em que $D^{+}$ e $D^{-}$ s\~ao as dist\^ancias Euclidianas aos vetores ideal e nadir, considerando o sentido custo/benef\'icio de cada componente.
+
+\subsection{S\'intese dos resultados}
+Ambos os m\'etodos geraram rankings coerentes, concentrados na regi\~ao de equil\'ibrio da fronteira. As solu\c{c}\~oes selecionadas foram:
+\begin{itemize}
+    \item \textbf{Escolha cl\'assica} (maior $S_{\text{cl\'assico}}$): $f_1 = 946{,}0$, $f_2 = 2{,}0$, folga m\'inima $1{,}4$, varia\c{c}\~ao de custo $5{,}68$.
+    \item \textbf{Escolha TOPSIS} (maior $C^{*}$): $f_1 = 1042{,}0$, $f_2 = 1{,}0$, folga m\'inima $2{,}4$, varia\c{c}\~ao de custo $9{,}13$.
+\end{itemize}
+
+A solu\c{c}\~ao cl\'assica privilegia menor custo com discreta perda de equil\'ibrio; a solu\c{c}\~ao TOPSIS privilegia equil\'ibrio quase perfeito, aceitando um custo maior e maior sensibilidade a perturba\c{c}\~oes de custo. Ambas mantiveram viola\c{c}\~oes esperadas de capacidade pr\'oximas de zero nos cen\'arios simulados.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{lcccc}
+\toprule
+Solu\c{c}\~ao & $f_1$ & $f_2$ & Folga m\'in. & Var. custo \\
+\midrule
+Escolha cl\'assica (Pw, $w_C{=}0{,}84$) & 946.0 & 2.0 & 1.4 & 5.68 \\
+Escolha TOPSIS (Pw, $w_C{=}0{,}32$) & 1042.0 & 1.0 & 2.4 & 9.13 \\
+\bottomrule
+\end{tabular}
+\caption{Solu\c{c}\~oes destacadas pelos m\'etodos de decis\~ao.}
+\label{tab:solucoes_escolhidas}
+\end{table}
+
+As visualiza\c{c}\~oes consolidadas (fronteira, escores e cargas) est\~ao dispon\'iveis em \texttt{graphs/decisao\_multicriterio/} (\textit{decisao\_fronteira.png}, \textit{decisao\_scores.png} e \textit{decisao\_cargas.png}), servindo de suporte visual ao relat\'orio.
+
+\subsection{Visualiza\c{c}\~oes}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.82\textwidth]{graphs/decisao_multicriterio/decisao_fronteira.png}
+    \caption{Fronteira n\~ao-dominada usada na decis\~ao multicrit\'erio, com destaque para as solu\c{c}\~oes escolhidas (cl\'assica e TOPSIS).}
+    \label{fig:decisao_fronteira}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{graphs/decisao_multicriterio/decisao_scores.png}
+    \caption{Escores das alternativas segundo a agrega\c{c}\~ao cl\'assica ponderada e o TOPSIS.}
+    \label{fig:decisao_scores}
+    \vspace{0.2cm}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\textwidth]{graphs/decisao_multicriterio/decisao_cargas.png}
+    \caption{Distribui\c{c}\~ao de carga por agente para as solu\c{c}\~oes selecionadas.}
+    \label{fig:decisao_cargas}
+\end{figure}
+
+\section{Conclusões}
+
+Este trabalho abordou o problema de atribuição de tarefas a agentes sob uma ótica multiobjetivo, focando no conflito entre a minimização do custo total ($f_1$) e a minimização do desequilíbrio de carga ($f_2$).
+
+Na primeira etapa, um algoritmo robusto baseado na metaheurística \textbf{Variable Neighborhood Search (VNS)} foi desenvolvido. A combinação de uma heurística construtiva do tipo \textbf{GRASP} com uma busca local \textbf{Best Improvement} (baseada na vizinhança \textit{shift}) provou ser altamente eficaz. Os resultados mono-objetivo demonstraram a excelência do algoritmo, alcançando um custo mínimo de \textbf{894.00} e um equilíbrio perfeito de \textbf{0.00} em execuções distintas, validando a implementação.
+
+Na segunda etapa, o VNS foi aplicado a duas abordagens de escalarização para gerar a fronteira de Pareto. A análise comparativa demonstrou que, embora a \textbf{Soma Ponderada (Pw)} tenha encontrado soluções não-dominadas, ela gerou uma fronteira irregular. O \textbf{Método $\epsilon$-Restrito (PE)} mostrou-se superior, mapeando a fronteira de forma muito mais uniforme e completa.
+
+Conclui-se que o VNS é uma ferramenta poderosa para este problema e que o Método $\epsilon$-Restrito forneceu o conjunto de soluções de compromisso mais rico. Este conjunto de soluções (a fronteira final do PE) serviu de base para a terceira etapa do trabalho: a seleção da solução final por meio de métodos de tomada de decisão multicritério.
+
+Na etapa decisória, a combinação de critérios de custo, equilíbrio e robustez, ponderados pelos pesos consensuais, levou a duas recomendações complementares: (i) uma solução de menor custo e leve desequilíbrio (Escolha clássica) e (ii) uma solução de equilíbrio quase perfeito com custo mais elevado (Escolha TOPSIS). Ambas mantiveram violações de capacidade desprezíveis nas simulações, oferecendo perfis claros para diferentes aversões a custo ou a desequilíbrio.
+
+\section{Bibliografia de Referência}
+
+\begin{thebibliography}{9}
+
+\bibitem{exemplo}
+BATISTA, Lucas. Introdução às Metaheurísticas. \textbf{Teoria da Decisão}. Engenharia de Controle e Automação. UFMG, Belo Horizonte. 36 slides. Notas de aula.
+\bibitem{exemplo}
+TAKAHASHI, Ricardo. Otimização Escalar e Vetorial. \textbf{Conceitos Preliminares}. Engenharia de Controle e Automação. UFMG, Belo Horizonte. 51 slides. Notas de aula.
+
+\bibitem{hansen_vns_2001}
+HANSEN, Pierre; MLADENOVIĆ, Nenad. Variable neighborhood search: Principles and applications. \textbf{European Journal of Operational Research}, v. 130, n. 3, p. 449-467, 2001.
+
+\bibitem{mateus_grasp_gqap_2011}
+MATEUS, G. R.; RESENDE, Mauricio G. C.; SILVA, R. M. A. GRASP with path-relinking for the generalized quadratic assignment problem. \textbf{Journal of Heuristics}, v. 17, p. 527-565, 2011.
+
+\bibitem{hwang_yoon_1981}
+HWANG, C. L.; YOON, K. \textbf{Multiple Attribute Decision Making: Methods and Applications}. Springer, 1981.
+
+\bibitem{zitzler_thiele_1998}
+ZITZLER, Eckart; THIELE, Lothar. Multiobjective optimization using evolutionary algorithms — a comparative case study. In: \textbf{Parallel Problem Solving from Nature — PPSN V}. Lecture Notes in Computer Science, v. 1498. Springer, 1998, p. 292--301.
+
+\bibitem{deb_2001}
+DEB, Kalyanmoy. \textbf{Multi-Objective Optimization Using Evolutionary Algorithms}. John Wiley \& Sons, 2001.
+
+
+\end{thebibliography}
+
+\end{document}

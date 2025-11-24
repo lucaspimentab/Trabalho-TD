@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import os
 import time
 
-# --- 1. CARREGAMENTO DOS DADOS ---
+# 1. Dados
 try:
     c = pd.read_csv("data/custos.csv", header=None).values
     a = pd.read_csv("data/recursos.csv", header=None).values
@@ -19,7 +19,7 @@ except FileNotFoundError:
 else:
     m, n = c.shape
 
-# --- 2. FUNÇÕES OBJETIVO E VIABILIDADE  ---
+# 2. Funções Objetivo e Viabilidade
 def f1(sol):
     """Custo total"""
     return sum(c[sol[j], j] for j in range(n))
@@ -42,7 +42,7 @@ def is_feasible(sol):
         load[sol[j]] += a[sol[j], j]
     return np.all(load <= b)
 
-# --- 3. HEURÍSTICA CONSTRUTIVA ---
+# 3. Heurística Construtiva
 def greedy_solution_grasp(alpha=0.3):
     sol = -np.ones(n, dtype=int)
     load = np.zeros(m)
@@ -74,7 +74,7 @@ def greedy_solution_grasp(alpha=0.3):
         
     return sol
 
-# --- 4. ESTRUTURAS DE VIZINHANÇA ---
+# 4. Estruturas de Vizinhança
 def neighborhood_shift(sol):
     s = sol.copy()
     j = random.randrange(n)
@@ -105,7 +105,7 @@ def neighborhood_swap(sol):
     s[j2] = i1
     return s
 
-# --- 5. ESTRATÉGIA DE REFINAMENTO ---
+# 5. Estratétgia de Refinamento
 def best_improvement_local_search(sol, obj_func):
     best_sol = sol.copy()
     best_val = obj_func(best_sol)
@@ -136,7 +136,7 @@ def best_improvement_local_search(sol, obj_func):
             
     return best_sol, best_val
 
-# --- 6. METAHEURÍSTICA VNS ---
+# 6. Metaheurística VNS
 def shake(sol, k):
     s = sol.copy()
     
@@ -179,7 +179,7 @@ def VNS(obj_func, max_iter=500, k_max=3):
 
     return best_sol, best_val, history
 
-# --- 7. FUNÇÕES DE ESCALARIZAÇÃO ---
+# 7. Funções De Escalarização
 
 def obj_func_ponderada(sol, w1, f1_min, f1_max, f2_min, f2_max):
     """
@@ -222,7 +222,7 @@ def obj_func_epsilon(sol, epsilon_val):
         # Se for viável, retorna apenas o custo
         return val_f1
 
-# --- 8. FUNÇÕES DE EXECUÇÃO ---
+# 8. Funções de Execução
 
 def get_nadir_points():
     """
@@ -288,7 +288,7 @@ def run_epsilon_restrito(f1_min, f1_max, f2_min, f2_max, num_steps=20):
 
 def filter_non_dominated(points):
     """
-    (Entrega 2) Filtra uma lista de pontos, mantendo apenas os não-dominados.
+    Filtra uma lista de pontos, mantendo apenas os não-dominados.
     """
     points = sorted(points) # Ordena por f1
     filtered_pareto = []
@@ -311,98 +311,85 @@ def filter_non_dominated(points):
             
     return filtered_pareto
 
-# --- 9. MAIN (NOVO - Entrega 2) ---
+# 9. Main
 
 if __name__ == "__main__":
-    
-    # Cria a pasta de gráficos se não existir
-    if not os.path.exists("graphs"):
-        os.makedirs("graphs")
-        
+
+    base_dir = os.path.join("graphs", "otimizacao_multiobjetivo")
+    os.makedirs(base_dir, exist_ok=True)
+
     NUM_EXECUCOES = 5
-    NUM_PONTOS_FRONTEIRA = 20 # 20 passos para w e epsilon
-    
+    NUM_PONTOS_FRONTEIRA = 20  # 20 passos para w e epsilon
+
     all_fronts_pw = []
     all_fronts_pe = []
-    
-    print("=== INICIANDO ENTREGA 2 ===")
+
+    print("=== INICIANDO ENT2 (multiobjetivo) ===")
     start_time = time.time()
-    
+
     for run in range(NUM_EXECUCOES):
-        print(f"\n--- Execução {run+1} / {NUM_EXECUCOES} ---")
-        
-        # 1. Encontra os limites (ideal e nadir) para ESTA execução
-        # (Varia devido à aleatoriedade do GRASP)
+        print(f"\\n--- Execucao {run+1} / {NUM_EXECUCOES} ---")
+
         f1_min, f1_max, f2_min, f2_max = get_nadir_points()
-        
-        # 2. Executa Soma Ponderada (Pw)
+
         print("  Rodando Soma Ponderada (Pw)...")
         front_pw = run_soma_ponderada(f1_min, f1_max, f2_min, f2_max, NUM_PONTOS_FRONTEIRA)
         all_fronts_pw.append(front_pw)
-        
-        # 3. Executa Epsilon-Restrito (PE)
+
         print("  Rodando Epsilon-Restrito (PE)...")
         front_pe = run_epsilon_restrito(f1_min, f1_max, f2_min, f2_max, NUM_PONTOS_FRONTEIRA)
         all_fronts_pe.append(front_pe)
 
-    print(f"\nTempo total de execução: {(time.time() - start_time):.2f} segundos")
+    print(f"\\nTempo total de execucao: {(time.time() - start_time):.2f} segundos")
 
-    # --- Plotando Gráficos ---
+    print("Gerando graficos...")
 
-    print("Gerando gráficos...")
-    
-    # Gráfico 1: Soma Ponderada (Pw)
     plt.figure(figsize=(10, 7))
     all_points_pw = []
     for i, front in enumerate(all_fronts_pw):
         x_vals = [p[0] for p in front]
         y_vals = [p[1] for p in front]
         all_points_pw.extend(front)
-        plt.scatter(x_vals, y_vals, alpha=0.6, label=f"Execução {i+1}")
-        plt.plot(sorted(x_vals), sorted(y_vals, reverse=True), alpha=0.3) # Linha de tendência
-    
-    # Filtra e plota a fronteira não-dominada final (20 pontos)
+        plt.scatter(x_vals, y_vals, alpha=0.6, label=f"Execucao {i+1}")
+        plt.plot(sorted(x_vals), sorted(y_vals, reverse=True), alpha=0.3)
+
     final_pareto_pw = filter_non_dominated(all_points_pw)
-    if len(final_pareto_pw) > 20: # Seleciona os 20 mais bem distribuídos
+    if len(final_pareto_pw) > 20:
         indices = np.linspace(0, len(final_pareto_pw) - 1, 20, dtype=int)
         final_pareto_pw = [final_pareto_pw[i] for i in indices]
-        
-    plt.scatter([p[0] for p in final_pareto_pw], [p[1] for p in final_pareto_pw], 
-                color='red', marker='x', s=100, label="Fronteira Final (20 pontos)")
-    
-    plt.title(f"Soma Ponderada (Pw) - {NUM_EXECUCOES} Execuções")
+
+    plt.scatter([p[0] for p in final_pareto_pw], [p[1] for p in final_pareto_pw], color='red', marker='x', s=100, label="Fronteira Final (20 pontos)")
+
+    plt.title(f"Soma Ponderada (Pw) - {NUM_EXECUCOES} execucoes")
     plt.xlabel("f1 (Custo Total)")
-    plt.ylabel("f2 (Desequilíbrio de Carga)")
+    plt.ylabel("f2 (Desequilibrio de Carga)")
     plt.legend()
     plt.grid(True)
-    plt.savefig("graphs/fronteira_pw.png", dpi=150)
+    plt.savefig(os.path.join(base_dir, "fronteira_pw.png"), dpi=150)
     plt.close()
 
-    # Gráfico 2: Epsilon-Restrito (PE)
     plt.figure(figsize=(10, 7))
     all_points_pe = []
     for i, front in enumerate(all_fronts_pe):
         x_vals = [p[0] for p in front]
         y_vals = [p[1] for p in front]
         all_points_pe.extend(front)
-        plt.scatter(x_vals, y_vals, alpha=0.6, label=f"Execução {i+1}")
-        plt.plot(sorted(x_vals), sorted(y_vals, reverse=True), alpha=0.3) # Linha de tendência
+        plt.scatter(x_vals, y_vals, alpha=0.6, label=f"Execucao {i+1}")
+        plt.plot(sorted(x_vals), sorted(y_vals, reverse=True), alpha=0.3)
 
-    # Filtra e plota a fronteira não-dominada final (20 pontos)
     final_pareto_pe = filter_non_dominated(all_points_pe)
-    if len(final_pareto_pe) > 20: # Seleciona os 20 mais bem distribuídos
+    if len(final_pareto_pe) > 20:
         indices = np.linspace(0, len(final_pareto_pe) - 1, 20, dtype=int)
         final_pareto_pe = [final_pareto_pe[i] for i in indices]
-        
-    plt.scatter([p[0] for p in final_pareto_pe], [p[1] for p in final_pareto_pe], 
-                color='red', marker='x', s=100, label="Fronteira Final (20 pontos)")
 
-    plt.title(f"Método $\epsilon$-Restrito (PE) - {NUM_EXECUCOES} Execuções")
+    plt.scatter([p[0] for p in final_pareto_pe], [p[1] for p in final_pareto_pe], color='red', marker='x', s=100, label="Fronteira Final (20 pontos)")
+
+    plt.title(f"Metodo $\epsilon$-Restrito (PE) - {NUM_EXECUCOES} execucoes")
     plt.xlabel("f1 (Custo Total)")
-    plt.ylabel("f2 (Desequilíbrio de Carga)")
+    plt.ylabel("f2 (Desequilibrio de Carga)")
     plt.legend()
     plt.grid(True)
-    plt.savefig("graphs/fronteira_pe.png", dpi=150)
+    plt.savefig(os.path.join(base_dir, "fronteira_pe.png"), dpi=150)
     plt.close()
-    
-    print("Gráficos 'fronteira_pw.png' e 'fronteira_pe.png' salvos na pasta 'graphs'.")
+
+    print(f"Graficos 'fronteira_pw.png' e 'fronteira_pe.png' salvos em {base_dir}.")

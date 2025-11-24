@@ -3,8 +3,7 @@ import pandas as pd
 import random
 import matplotlib.pyplot as plt
 
-# --- 1. CARREGAMENTO DOS DADOS ---
-# (Sem alterações)
+# 1. Dados
 try:
     c = pd.read_csv("data/custos.csv", header=None).values       # custos c(i,j)
     a = pd.read_csv("data/recursos.csv", header=None).values     # recursos a(i,j)
@@ -18,8 +17,7 @@ except FileNotFoundError:
 else:
     m, n = c.shape  # m agentes, n tarefas
 
-# --- 2. FUNÇÕES OBJETIVO E VIABILIDADE ---
-# (Sem alterações)
+# 2. Funções Objetivo e Viabilidade
 def f1(sol):
     """Custo total"""
     return sum(c[sol[j], j] for j in range(n))
@@ -38,8 +36,7 @@ def is_feasible(sol):
         load[sol[j]] += a[sol[j], j]
     return np.all(load <= b)
 
-# --- 3. HEURÍSTICA CONSTRUTIVA (Item ii-d) ---
-# Implementação GRASP: mais robusta que o greedy simples
+# 3. Heurística Construtiva
 def greedy_solution_grasp(alpha=0.3):
     """
     (Item ii-d) Heurística construtiva GRASP.
@@ -58,8 +55,6 @@ def greedy_solution_grasp(alpha=0.3):
                 feasible_agents.append((c[i, j], i)) # (custo, agente)
         
         if not feasible_agents:
-            ### ALTERAÇÃO 1: Em vez de recursão, retorna None (falha) ###
-            # Se nenhuma alocação for possível, esta tentativa falhou.
             return None 
 
         # Ordena os agentes viáveis pelo custo
@@ -80,13 +75,9 @@ def greedy_solution_grasp(alpha=0.3):
         sol[j] = chosen_agent
         load[chosen_agent] += a[chosen_agent, j]
         
-    # ### ALTERAÇÃO 2: Remove a verificação recursiva final ###
-    # A lógica de construção já garante a viabilidade se chegar até aqui.
     return sol
 
-# --- 4. ESTRUTURAS DE VIZINHANÇA (Item ii-c) ---
-# Três vizinhanças DISTINTAS e eficazes
-
+# 4. Estruturas de Vizinhança
 def neighborhood_shift(sol):
     """
     Vizinhança 1 (Shift): 
@@ -149,7 +140,7 @@ def neighborhood_swap(sol):
 # Lista de vizinhanças para o VNS
 neighborhoods = [neighborhood_shift, neighborhood_exchange, neighborhood_swap]
 
-# --- 5. ESTRATÉGIA DE REFINAMENTO (Item ii-e) ---
+# 5. Estratétgia de Refinamento
 # Busca Local Best Improvement REAL
 
 def best_improvement_local_search(sol, obj_func):
@@ -193,9 +184,7 @@ def best_improvement_local_search(sol, obj_func):
             
     return best_sol, best_val
 
-# --- 6. METAHEURÍSTICA VNS (Item ii-a) ---
-# General VNS (GVNS)
-
+# 6. Metaheurística VNS
 def shake(sol, k):
     """
     Função de Perturbação (Shake) do VNS.
@@ -225,10 +214,9 @@ def shake(sol, k):
 
 def VNS(obj_func, max_iter=500, k_max=3):
     """
-    (Item ii-a) General Variable Neighborhood Search (GVNS)
+    General Variable Neighborhood Search (GVNS)
     """
     # 1. Solução inicial (Item ii-d)
-    ### ALTERAÇÃO 3: Loop para garantir que a solução inicial seja viável ###
     sol = None
     while sol is None:
         sol = greedy_solution_grasp(alpha=0.3)
@@ -257,8 +245,7 @@ def VNS(obj_func, max_iter=500, k_max=3):
 
     return best_sol, best_val, history
 
-# --- 7. EXECUÇÃO E RESULTADOS ---
-# (Sem alterações, apenas ajustei o nome das pastas)
+# 7. Execução dos Experimentos e Visualizações
 def run_experiments(obj_func, name="f1"):
     results = []
     histories = []
@@ -267,8 +254,9 @@ def run_experiments(obj_func, name="f1"):
 
     # Cria a pasta de gráficos se não existir
     import os
-    if not os.path.exists("graphs"):
-        os.makedirs("graphs")
+    base_dir = os.path.join("graphs", "otimizacao_mono_objetivo")
+    if not os.path.exists(base_dir):
+        os.makedirs(base_dir)
 
     for run in range(5):
         best, val, hist = VNS(obj_func, max_iter=500, k_max=3) # Usando k_max=3
@@ -289,7 +277,7 @@ def run_experiments(obj_func, name="f1"):
     plt.xlabel("Iteração")
     plt.ylabel(name)
     plt.grid()
-    plt.savefig(f"graphs/{name}_convergencia.png", dpi=150)
+    plt.savefig(os.path.join(base_dir, f"{name}_convergencia.png"), dpi=150)
     plt.close()
 
     # Melhor solução encontrada (carga por agente)
@@ -303,7 +291,7 @@ def run_experiments(obj_func, name="f1"):
     plt.xlabel("Agentes")
     plt.ylabel("Carga total")
     plt.grid(axis="y")
-    plt.savefig(f"graphs/{name}_melhor.png", dpi=150)
+    plt.savefig(os.path.join(base_dir, f"{name}_melhor.png"), dpi=150)
     plt.close()
 
     return results, histories, best_global, best_val_global
