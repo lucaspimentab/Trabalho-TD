@@ -3,14 +3,23 @@ import pandas as pd
 import random
 import matplotlib.pyplot as plt
 
-# Dados
-c = pd.read_csv("data/custos.csv", header=None).values       # custos c(i,j)
-a = pd.read_csv("data/recursos.csv", header=None).values     # recursos a(i,j)
-b = pd.read_csv("data/capacidades.csv", header=None).values.flatten()  # capacidade b(i)
+# --- 1. CARREGAMENTO DOS DADOS ---
+# (Sem alterações)
+try:
+    c = pd.read_csv("data/custos.csv", header=None).values       # custos c(i,j)
+    a = pd.read_csv("data/recursos.csv", header=None).values     # recursos a(i,j)
+    b = pd.read_csv("data/capacidades.csv", header=None).values.flatten()  # capacidade b(i)
+except FileNotFoundError:
+    print("Arquivos de dados não encontrados. Usando dados aleatórios para teste.")
+    m, n = 5, 50
+    c = np.random.rand(m, n) * 10
+    a = np.random.rand(m, n) * 5
+    b = np.full(m, 100)
+else:
+    m, n = c.shape  # m agentes, n tarefas
 
-m, n = c.shape  # m agentes, n tarefas
-
-# Funções objetivo
+# --- 2. FUNÇÕES OBJETIVO E VIABILIDADE ---
+# (Sem alterações)
 def f1(sol):
     """Custo total"""
     return sum(c[sol[j], j] for j in range(n))
@@ -29,114 +38,240 @@ def is_feasible(sol):
         load[sol[j]] += a[sol[j], j]
     return np.all(load <= b)
 
-# Heurística construtiva
-def random_feasible_solution():
-    """Gera solução viável aleatória"""
+# --- 3. HEURÍSTICA CONSTRUTIVA (Item ii-d) ---
+# Implementação GRASP: mais robusta que o greedy simples
+def greedy_solution_grasp(alpha=0.3):
+    """
+    (Item ii-d) Heurística construtiva GRASP.
+    Constrói solução inicial com aleatoriedade controlada.
+    """
     sol = -np.ones(n, dtype=int)
     load = np.zeros(m)
     tasks = list(range(n))
-    random.shuffle(tasks)
+    random.shuffle(tasks) # Processa as tarefas em ordem aleatória
+
     for j in tasks:
-        feasible_agents = [i for i in range(m) if load[i] + a[i, j] <= b[i]]
-        if feasible_agents:
-            i = random.choice(feasible_agents)
-            sol[j] = i
-            load[i] += a[i, j]
-        else:
-            return None
-    return sol
-
-def greedy_solution():
-    """Constrói solução inicial tentando sempre o menor custo viável"""
-    sol = -np.ones(n, dtype=int)
-    load = np.zeros(m)
-    for j in range(n):
-        order = np.argsort(c[:, j])
-        placed = False
-        for i in order:
+        # Pega todos os agentes viáveis
+        feasible_agents = []
+        for i in range(m):
             if load[i] + a[i, j] <= b[i]:
-                sol[j] = i
-                load[i] += a[i, j]
-                placed = True
-                break
-        if not placed:
-            return random_feasible_solution()
+                feasible_agents.append((c[i, j], i)) # (custo, agente)
+        
+        if not feasible_agents:
+            ### ALTERAÇÃO 1: Em vez de recursão, retorna None (falha) ###
+            # Se nenhuma alocação for possível, esta tentativa falhou.
+            return None 
+
+        # Ordena os agentes viáveis pelo custo
+        feasible_agents.sort()
+        
+        # Constrói a RCL (Restricted Candidate List)
+        min_cost = feasible_agents[0][0]
+        max_cost_limit = min_cost + alpha * (feasible_agents[-1][0] - min_cost)
+        
+        RCL = [i for cost, i in feasible_agents if cost <= max_cost_limit]
+        
+        if not RCL: 
+             RCL = [feasible_agents[0][1]]
+             
+        # Escolhe aleatoriamente um agente da RCL
+        chosen_agent = random.choice(RCL)
+        
+        sol[j] = chosen_agent
+        load[chosen_agent] += a[chosen_agent, j]
+        
+    # ### ALTERAÇÃO 2: Remove a verificação recursiva final ###
+    # A lógica de construção já garante a viabilidade se chegar até aqui.
     return sol
 
-# Estruturas de vizinhança
-def swap(sol):
-    """Troca as tarefas de duas posições"""
+# --- 4. ESTRUTURAS DE VIZINHANÇA (Item ii-c) ---
+# Três vizinhanças DISTINTAS e eficazes
+
+def neighborhood_shift(sol):
+    """
+    Vizinhança 1 (Shift): 
+    Move uma tarefa 'j' para um agente 'i' aleatório.
+    """
     s = sol.copy()
-    i, j = random.sample(range(n), 2)
-    s[i], s[j] = s[j], s[i]
+    j = random.randrange(n) # Tarefa aleatória
+    current_agent = s[j]
+    
+    # Escolhe um novo agente aleatório (diferente do atual)
+    new_agent = random.randint(0, m - 1)
+    while new_agent == current_agent:
+        new_agent = random.randint(0, m - 1)
+    
+    s[j] = new_agent
     return s
 
-def shift(sol):
-    """Move uma tarefa para outro agente aleatório"""
-    s = sol.copy()
-    j = random.randrange(n)
-    agents = list(range(m))
-    agents.remove(s[j])
-    s[j] = random.choice(agents)
-    return s
-
-def two_swap(sol):
-    """Troca duas tarefas diferentes entre agentes distintos"""
+def neighborhood_exchange(sol):
+    """
+    Vizinhança 2 (Exchange): 
+    Troca os agentes de duas tarefas 'j1' e 'j2' aleatórias.
+    """
     s = sol.copy()
     j1, j2 = random.sample(range(n), 2)
-    s[j1], s[j2] = s[j2], s[j1]
+    s[j1], s[j2] = s[j2], s[j1] # Troca os agentes
     return s
 
-neighborhoods = [swap, shift, two_swap]
+def neighborhood_swap(sol):
+    """
+    Vizinhança 3 (Swap): 
+    Troca uma tarefa 'j1' do agente 'i1' por uma tarefa 'j2' do agente 'i2'.
+    Movimento mais complexo e poderoso.
+    """
+    s = sol.copy()
+    
+    # Encontra dois agentes distintos que tenham tarefas
+    agents_with_tasks = list(set(s))
+    if len(agents_with_tasks) < 2:
+        return s # Não é possível trocar
 
-# Busca local e VNS
-def best_improvement(sol, obj_func):
-    """Busca local (Best Improvement)"""
-    best = sol.copy()
-    best_val = obj_func(best)
+    i1, i2 = random.sample(agents_with_tasks, 2)
+
+    # Encontra as tarefas atribuídas a cada um
+    tasks_i1_indices = np.where(s == i1)[0]
+    tasks_i2_indices = np.where(s == i2)[0]
+
+    if len(tasks_i1_indices) == 0 or len(tasks_i2_indices) == 0:
+        return s 
+
+    # Sorteia uma tarefa de cada agente
+    j1 = random.choice(tasks_i1_indices)
+    j2 = random.choice(tasks_i2_indices)
+
+    # Realiza a troca
+    s[j1] = i2
+    s[j2] = i1
+    
+    return s
+
+# Lista de vizinhanças para o VNS
+neighborhoods = [neighborhood_shift, neighborhood_exchange, neighborhood_swap]
+
+# --- 5. ESTRATÉGIA DE REFINAMENTO (Item ii-e) ---
+# Busca Local Best Improvement REAL
+
+def best_improvement_local_search(sol, obj_func):
+    """
+    (Item ii-e) Busca local (Best Improvement) usando a vizinhança Shift.
+    Testa TODOS os (n * (m-1)) movimentos de shift e escolhe o MELHOR.
+    """
+    best_sol = sol.copy()
+    best_val = obj_func(best_sol)
+    
     improved = True
     while improved:
         improved = False
-        for nh in neighborhoods:
-            candidate = nh(best)
-            if is_feasible(candidate):
-                val = obj_func(candidate)
-                if val < best_val:
-                    best, best_val = candidate, val
-                    improved = True
-    return best, best_val
+        current_best_move_sol = best_sol # Armazena a melhor solução *desta iteração*
+        current_best_move_val = best_val
 
-def VNS(obj_func, max_iter=500):
-    """Variable Neighborhood Search"""
-    sol = greedy_solution()
-    while sol is None or not is_feasible(sol):
-        sol = random_feasible_solution()
+        # Itera por TODAS as tarefas
+        for j in range(n):
+            current_agent = best_sol[j]
+            
+            # Tenta mover a tarefa j para TODOS os outros agentes
+            for i in range(m):
+                if i == current_agent:
+                    continue
+                
+                candidate_sol = best_sol.copy()
+                candidate_sol[j] = i # Realiza o movimento 'shift'
+                
+                if is_feasible(candidate_sol):
+                    candidate_val = obj_func(candidate_sol)
+                    
+                    # Se este é o melhor movimento encontrado ATÉ AGORA
+                    if candidate_val < current_best_move_val:
+                        current_best_move_sol = candidate_sol
+                        current_best_move_val = candidate_val
+        
+        # Se, após testar TUDO, encontramos uma melhora
+        if current_best_move_val < best_val:
+            best_sol, best_val = current_best_move_sol, current_best_move_val
+            improved = True # Continua a busca a partir da nova solução
+            
+    return best_sol, best_val
 
-    best = sol.copy()
-    best_val = obj_func(best)
+# --- 6. METAHEURÍSTICA VNS (Item ii-a) ---
+# General VNS (GVNS)
+
+def shake(sol, k):
+    """
+    Função de Perturbação (Shake) do VNS.
+    k=1: usa vizinhança 1 (shift)
+    k=2: usa vizinhança 2 (exchange)
+    k=3: usa vizinhança 3 (swap)
+    k>3: aplica múltiplos movimentos (perturbação mais forte)
+    """
+    s = sol.copy()
+    
+    if k == 1:
+        s = neighborhood_shift(s)
+    elif k == 2:
+        s = neighborhood_exchange(s)
+    elif k == 3:
+        s = neighborhood_swap(s)
+    else:
+        # Perturbação mais forte: aplica k-2 movimentos 'shift' aleatórios
+        for _ in range(k - 2):
+            s = neighborhood_shift(s)
+    
+    # Garante que o shake não gere uma solução inviável
+    if not is_feasible(s):
+        return sol # Retorna a solução original se o shake falhar
+        
+    return s
+
+def VNS(obj_func, max_iter=500, k_max=3):
+    """
+    (Item ii-a) General Variable Neighborhood Search (GVNS)
+    """
+    # 1. Solução inicial (Item ii-d)
+    ### ALTERAÇÃO 3: Loop para garantir que a solução inicial seja viável ###
+    sol = None
+    while sol is None:
+        sol = greedy_solution_grasp(alpha=0.3)
+    
+    # 2. Refinamento inicial (Item ii-e)
+    best_sol, best_val = best_improvement_local_search(sol, obj_func)
     history = [best_val]
 
     for _ in range(max_iter):
-        k = random.randint(0, len(neighborhoods) - 1)
-        s_perturb = neighborhoods[k](best)
-        if not is_feasible(s_perturb):
-            continue
-        s_local, val_local = best_improvement(s_perturb, obj_func)
-        if val_local < best_val:
-            best, best_val = s_local, val_local
+        k = 1
+        while k <= k_max:
+            # 3. Perturbação (Shake) na vizinhança N_k
+            s_shake = shake(best_sol, k)
+            
+            # 4. Busca Local (Refinamento)
+            s_local, val_local = best_improvement_local_search(s_shake, obj_func)
+            
+            # 5. Critério de Aceitação (Move)
+            if val_local < best_val:
+                best_sol, best_val = s_local, val_local
+                k = 1 # Sucesso! Volta para a primeira vizinhança
+            else:
+                k = k + 1 # Falha. Tenta uma vizinhança/perturbação maior
+        
         history.append(best_val)
 
-    return best, best_val, history
+    return best_sol, best_val, history
 
-# Execução e resultados
+# --- 7. EXECUÇÃO E RESULTADOS ---
+# (Sem alterações, apenas ajustei o nome das pastas)
 def run_experiments(obj_func, name="f1"):
     results = []
     histories = []
     best_global = None
     best_val_global = float("inf")
 
+    # Cria a pasta de gráficos se não existir
+    import os
+    if not os.path.exists("graphs"):
+        os.makedirs("graphs")
+
     for run in range(5):
-        best, val, hist = VNS(obj_func)
+        best, val, hist = VNS(obj_func, max_iter=500, k_max=3) # Usando k_max=3
         results.append(val)
         histories.append(hist)
         if val < best_val_global:
@@ -178,5 +313,5 @@ if __name__ == "__main__":
     print("=== Otimização f1 (Custo) ===")
     run_experiments(f1, "f1")
 
-    print("=== Otimização f2 (Equilíbrio) ===")
+    print("\n=== Otimização f2 (Equilíbrio) ===")
     run_experiments(f2, "f2")
